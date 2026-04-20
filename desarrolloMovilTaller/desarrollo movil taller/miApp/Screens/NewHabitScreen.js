@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   TextInput, 
@@ -20,7 +20,27 @@ export default function NewHabitScreen({ navigation }) {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('General');
   const [frequency, setFrequency] = useState('Diario');
+  const [categories, setCategories] = useState(['General']);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const user = authService.getCurrentUser();
+        if (!user) return;
+
+        const categoryList = await habitService.getCategories(user.uid);
+        if (categoryList.length > 0) {
+          setCategories(categoryList);
+          setCategory(prev => categoryList.includes(prev) ? prev : categoryList[0]);
+        }
+      } catch (error) {
+        console.log('Error cargando categorías:', error);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -85,7 +105,7 @@ export default function NewHabitScreen({ navigation }) {
           selectedValue={category} 
           onValueChange={(value) => setCategory(value)}
         >
-          {['Salud', 'Trabajo', 'Personal', 'General'].map(c => (
+          {categories.map(c => (
             <Picker.Item key={c} label={c} value={c} />
           ))}
         </Picker>

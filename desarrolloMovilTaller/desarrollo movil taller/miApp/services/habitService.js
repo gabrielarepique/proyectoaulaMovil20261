@@ -71,6 +71,47 @@ export const habitService = {
     }
   },
 
+  getCategories: async (userId) => {
+    try {
+      const snapshot = await getDocs(
+        collection(db, 'users', userId, 'categories')
+      );
+
+      const categories = [];
+
+      snapshot.forEach(docItem => {
+        const data = docItem.data();
+        if (data?.name) categories.push(data.name);
+      });
+
+      return categories.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+
+    } catch (error) {
+      console.log("Error obteniendo categorías:", error);
+      return [];
+    }
+  },
+
+  createCategory: async (userId, categoryName) => {
+    try {
+      const trimmed = categoryName.trim();
+      if (!trimmed) throw new Error('Nombre de categoría inválido');
+
+      const categoryId = trimmed.toLowerCase().replace(/\s+/g, '-');
+
+      await setDoc(
+        doc(db, 'users', userId, 'categories', categoryId),
+        {
+          name: trimmed,
+          createdAt: new Date()
+        }
+      );
+    } catch (error) {
+      console.log("Error creando categoría:", error);
+      throw error;
+    }
+  },
+
   createHabit: async (userId, habitData) => {
     try {
       await addDoc(

@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  Modal
+  Modal,
+  ScrollView
 } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
@@ -35,6 +36,9 @@ export default function HomeScreen({ navigation }) {
   const [category, setCategory] = useState("Todas");
   const [frequency, setFrequency] = useState("Todas");
   const [status, setStatus] = useState("Todos");
+  const [categories, setCategories] = useState([]);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -46,10 +50,14 @@ export default function HomeScreen({ navigation }) {
           if (!user) return;
 
           const profile = await habitService.getUserProfile(user.uid);
-          if (profile?.fullName) setUserName(profile.fullName);
+          const username = profile?.fullName || user.displayName || user.email?.split('@')[0] || 'Usuario';
+          setUserName(username);
 
           const habitsData = await habitService.getHabits(user.uid);
           setHabits(habitsData);
+
+          const categoryList = await habitService.getCategories(user.uid);
+          setCategories(categoryList.length ? categoryList : ['General']);
 
           const streakMap = {};
           const doneMap = {};
@@ -97,8 +105,71 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const handleDelete = (habit) => {
+    Alert.alert(
+      'Eliminar hábito',
+      `¿Seguro que quieres eliminar "${habit.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const user = authService.getCurrentUser();
+              if (!user) return;
+
+              await habitService.deleteHabit(user.uid, habit.id);
+              setHabits(prev => prev.filter(item => item.id !== habit.id));
+              setDoneToday(prev => {
+                const next = { ...prev };
+                delete next[habit.id];
+                return next;
+              });
+              setStreaks(prev => {
+                const next = { ...prev };
+                delete next[habit.id];
+                return next;
+              });
+            } catch (error) {
+              console.log('Error eliminando hábito:', error);
+              Alert.alert('Error', 'No se pudo eliminar el hábito.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getInitial = () => {
     return userName ? userName.charAt(0).toUpperCase() : "?";
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      Alert.alert('Error', 'Por favor ingresa un nombre de categoría.');
+      return;
+    }
+
+    if (categories.includes(name)) {
+      Alert.alert('Atención', 'Ya existe una categoría con ese nombre.');
+      return;
+    }
+
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) return;
+
+      await habitService.createCategory(user.uid, name);
+      setCategories(prev => [...prev, name].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })));
+      setNewCategoryName('');
+      setShowCreateCategory(false);
+      Alert.alert('Categoría creada', `La categoría "${name}" se agregó correctamente.`);
+    } catch (error) {
+      console.log('Error creando categoría:', error);
+      Alert.alert('Error', 'No se pudo crear la categoría.');
+    }
   };
 
   // 🔥 FILTRO PRO
@@ -169,6 +240,39 @@ export default function HomeScreen({ navigation }) {
         />
       </View>
 
+      {/* CATEGORÍAS */}
+      <View style={styles.categoriesHeader}>
+        <Text style={styles.sectionTitle}>Categorías</Text>
+      </View>
+      <ScrollView
+        style={styles.categoriesScroll}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesContent}
+      >
+        <TouchableOpacity
+          style={[styles.categoryChip, category === 'Todas' && styles.categoryActive]}
+          onPress={() => setCategory('Todas')}
+        >
+          <Text style={category === 'Todas' ? styles.categoryLabelActive : styles.categoryLabel}>Todas</Text>
+        </TouchableOpacity>
+
+        {categories.map(cat => (
+          <TouchableOpacity
+            key={cat}
+            style={[styles.categoryChip, category === cat && styles.categoryActive]}
+            onPress={() => setCategory(cat)}
+          >
+            <Text style={category === cat ? styles.categoryLabelActive : styles.categoryLabel}>{cat}</Text>
+          </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity style={styles.addCategoryBtn} onPress={() => setShowCreateCategory(true)}>
+          <Ionicons name="add-circle-outline" size={18} color="#1A73E8" />
+          <Text style={styles.addCategoryText}>Crear categoría</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
       {/* 🎛️ BOTÓN FILTROS */}
       <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilters(true)}>
         <Ionicons name="options-outline" size={18} color="#fff" />
@@ -197,6 +301,17 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => handleDelete(item)}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color="#E53935"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.doneBtn, isDone && styles.doneBtnDisabled]}
                 onPress={() => handleDone(item.id)}
                 disabled={isDone}
@@ -221,7 +336,7 @@ export default function HomeScreen({ navigation }) {
 
           {/* Categoría */}
           <Text style={styles.label}>Categoría</Text>
-          {["Todas", "Salud", "Trabajo", "Personal"].map(item => (
+          {['Todas', ...categories].map(item => (
             <TouchableOpacity key={item} onPress={() => setCategory(item)}>
               <Text style={category === item ? styles.activeOption : styles.option}>{item}</Text>
             </TouchableOpacity>
@@ -247,6 +362,26 @@ export default function HomeScreen({ navigation }) {
             <Text style={{ color: '#fff' }}>Aplicar filtros</Text>
           </TouchableOpacity>
 
+        </View>
+      </Modal>
+
+      <Modal visible={showCreateCategory} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Nueva categoría</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre de categoría"
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+            />
+            <TouchableOpacity style={styles.saveCategoryBtn} onPress={handleCreateCategory}>
+              <Text style={styles.saveCategoryText}>Crear categoría</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelCategoryBtn} onPress={() => setShowCreateCategory(false)}>
+              <Text style={styles.cancelCategoryText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
@@ -303,6 +438,79 @@ const styles = StyleSheet.create({
 
   searchInput: { marginLeft: 10, flex: 1 },
 
+  categoriesHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  sectionTitle: { fontWeight: '700', fontSize: 16, color: '#333' },
+  categoriesScroll: { marginBottom: 15 },
+  categoriesContent: { alignItems: 'center', flexDirection: 'row' },
+  categoryChip: {
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#D0E4FF',
+    marginRight: 8
+  },
+  categoryActive: {
+    backgroundColor: '#1A73E8',
+    borderColor: '#1A73E8'
+  },
+  categoryLabel: { color: '#333', fontWeight: '600' },
+  categoryLabelActive: { color: '#fff', fontWeight: '600' },
+  addCategoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#1A73E8',
+    backgroundColor: '#fff'
+  },
+  addCategoryText: { color: '#1A73E8', marginLeft: 6, fontWeight: '600' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalCard: {
+    width: '90%',
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#fff'
+  },
+  saveCategoryBtn: {
+    backgroundColor: '#1A73E8',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  saveCategoryText: {
+    color: '#fff',
+    fontWeight: '700'
+  },
+  cancelCategoryBtn: {
+    backgroundColor: '#F1F1F1',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  cancelCategoryText: {
+    color: '#333',
+    fontWeight: '700'
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#D0E4FF',
+    fontSize: 16
+  },
+
   filterBtn: {
     flexDirection: 'row',
     backgroundColor: '#1A73E8',
@@ -334,6 +542,15 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: '#888', marginTop: 5 },
 
   streak: { marginTop: 5, fontSize: 13, color: '#FF6B00', fontWeight: 'bold' },
+
+  deleteBtn: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E53935'
+  },
 
   doneBtn: {
     backgroundColor: '#1A73E8',
