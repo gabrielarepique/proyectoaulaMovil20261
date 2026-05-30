@@ -1,20 +1,29 @@
 {
   "expo": {
-    "name": "miApp",
-    "slug": "miApp",
+    "name": "NOW",
+    "slug": "now-habitos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EDF4FF"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.now.habitos",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#1A73E8"
       },
-      "package": "com.anonymous.miApp"
+      "package": "com.now.habitos"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -26,9 +35,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#EDF4FF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0ffe7e57-a775-4dad-ab7f-450c7418f50e"
+      }
+    }
   }
 }

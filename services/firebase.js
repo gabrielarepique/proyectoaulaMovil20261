@@ -1,7 +1,9 @@
 import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
+// Reemplaza estos valores con los de tu propia consola de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCMFqp9ArrJXj0HONNLfJVWP4crbZkY9cE",
   authDomain: "taller-1-b7a67.firebaseapp.com",
@@ -12,10 +14,13 @@ const firebaseConfig = {
   measurementId: "G-N73C9JZW15"
 };
 
+// Inicialización
 const app = initializeApp(firebaseConfig);
 
-const auth = initializeAuth(app, {
+export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
 
-export { app, auth };
+export const db = getFirestore(app);
+
+console.log("Firebase v10 inicializado correctamente");
